@@ -1,7 +1,5 @@
 import java.sql.*;
 
-
-
 public class DatabaseManager {
 
     private static final String URL = "jdbc:sqlite:database.db";
@@ -38,7 +36,7 @@ public class DatabaseManager {
     private boolean isDatabaseEmpty() {
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='Customer';")) {
+             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users';")) {
             return !rs.next() || rs.getInt(1) == 0;
         } catch (SQLException e) {
             return true; 
@@ -52,39 +50,38 @@ public class DatabaseManager {
             stmt.execute("PRAGMA foreign_keys = ON;");
 
             // Create tables according to the documentation schema
-            stmt.execute("CREATE TABLE IF NOT EXISTS Customer (" +
-                         "CustomerID INTEGER PRIMARY KEY, " +
+            stmt.execute("CREATE TABLE IF NOT EXISTS users (" +
+                         "UserID INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                         "UserType VARCHAR(20) NOT NULL, " +
                          "Username VARCHAR(50) NOT NULL UNIQUE, " +
-                         "Email VARCHAR(100) NOT NULL UNIQUE, " +
-                         "Password VARCHAR(100) NOT NULL, " +
-                         "FullName VARCHAR(100) NOT NULL, " +
-                         "Address VARCHAR(255) NOT NULL);");
-                         
-            stmt.execute("CREATE TABLE IF NOT EXISTS Seller (" +
-                         "SellerID INTEGER PRIMARY KEY, " +
-                         "SellerName VARCHAR(100) NOT NULL, " +
-                         "ContactNum VARCHAR(20) NOT NULL);");
-                         
-            stmt.execute("CREATE TABLE IF NOT EXISTS Game (" +
-                         "GameID INTEGER PRIMARY KEY, " +
+                         "Email VARCHAR(100) UNIQUE, " +
+                         "Password VARCHAR(100) NOT NULL);");
+
+            stmt.execute("CREATE TABLE IF NOT EXISTS sellerinfo (" +
+                         "SellerID INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                         "SellerName VARCHAR(100), " +
+                         "ContactInfo VARCHAR(100), " +
+                         "GamesSold INTEGER UNSIGNED DEFAULT 0);");
+
+            stmt.execute("CREATE TABLE IF NOT EXISTS gamesinfo (" +
+                         "GameID INTEGER PRIMARY KEY AUTOINCREMENT, " +
                          "GameName VARCHAR(100) NOT NULL, " +
-                         "SellerID INTEGER NOT NULL, " +
-                         "Category VARCHAR(50) NOT NULL, " +
-                         "Price DECIMAL(10,2) NOT NULL, " +
-                         "Developer VARCHAR(100) NOT NULL, " +
-                         "YearPublished INTEGER NOT NULL, " +
-                         "FOREIGN KEY (SellerID) REFERENCES Seller(SellerID));");
-                         
-            stmt.execute("CREATE TABLE IF NOT EXISTS Transactions (" +
-                         "TransactionID INTEGER PRIMARY KEY, " +
-                         "CustomerID INTEGER NOT NULL, " +
-                         "SellerID INTEGER NOT NULL, " +
-                         "Date DATE NOT NULL, " +
-                         "Game VARCHAR(100) NOT NULL, " +
-                         "Price DECIMAL(10,2) NOT NULL, " +
-                         "FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID), " +
-                         "FOREIGN KEY (SellerID) REFERENCES Seller(SellerID));");
-            
+                         "SellerID INTEGER, " +
+                         "Category VARCHAR(50), " + 
+                         "Price DECIMAL(10,2), " +
+                         "Developer VARCHAR(100), " +
+                         "YearPublished INTEGER, " +
+                         "FOREIGN KEY (SellerID) REFERENCES sellerinfo(SellerID));");
+
+            stmt.execute("CREATE TABLE IF NOT EXISTS playstoretransaction (" +
+                         "TransactionID INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                         "UserID INTEGER, " +
+                         "GameID INTEGER, " +
+                         "PurchaseDate TEXT, " +
+                         "TotalAmount REAL, " +
+                         "FOREIGN KEY (UserID) REFERENCES users(UserID) ON DELETE CASCADE, " +
+                         "FOREIGN KEY (GameID) REFERENCES gamesinfo(GameID) ON DELETE CASCADE);");
+
             System.out.println("✅ Database tables created successfully!");
         } catch (SQLException e) {
             System.out.println("❌ Error creating tables: " + e.getMessage());
@@ -93,86 +90,71 @@ public class DatabaseManager {
 
     private void insertSampleData() {
         try (Connection conn = DriverManager.getConnection(URL);
-            Statement stmt = conn.createStatement()) {
-            // Insert sample customers
-            stmt.executeUpdate("INSERT INTO Customer (CustomerID, Username, Email, Password, FullName, Address) VALUES " +
-                    "(123, 'qwerty', 'rihecaw952@intady.com', '12365', 'Tristan Berto', 'Sulu'), " +
-                    "(432, 'uiop', 'dhjsa@cam123', 'Ghf34', 'Bogart Smith', 'Pasay'), " +
-                    "(356, 'yobo', 'bigblokcok@gmail.com', 'Dfsd36f', 'Jhay Mapagmahal', 'Manila'), " +
-                    "(236, 'bogart', 'gga@internty.com', 'Dsj42', 'Alberto Ma', '45 Pasig'), " +
-                    "(779, 'yuan', 'bbg@gmail.com', 'dsgfds', 'Malou Ang', '897 Manila');");
-            
+             Statement stmt = conn.createStatement()) {
+            // Insert sample users
+            stmt.executeUpdate("INSERT INTO users (UserType, Username, Email, Password) VALUES " +
+                    "('Admin', 'GameSeller1', 'seller1@example.com', 'securepassword'), " +
+                    "('Guest', 'Customer1', 'customer1@example.com', 'securepassword');");
+
             // Insert sample sellers
-            stmt.executeUpdate("INSERT INTO Seller (SellerID, SellerName, ContactNum) VALUES " +
-                    "(865, 'Juan', '0123643'), " +
-                    "(759, 'Bert', '0546686'), " +
-                    "(345, 'Albert', '0145963'), " +
-                    "(976, 'Tristan', '0132468'), " +
-                    "(004, 'Mj', '0956423');");
-            
+            stmt.executeUpdate("INSERT INTO sellerinfo (SellerName, ContactInfo) VALUES " +
+                    "('Juan', '0123643'), " +
+                    "('Bert', '0546686');");
+
             // Insert sample games
-            stmt.executeUpdate("INSERT INTO Game (GameID, GameName, SellerID, Category, Price, Developer, YearPublished) VALUES " +
-                    "(394, 'Valorant', 865, 'FPS', 2000, 'Riot', 2020), " +
-                    "(097, 'Ros', 759, 'Survival', 1753, 'NetEase', 2017), " +
-                    "(769, 'Pubg', 345, 'Survival', 1985, 'Krafton', 2017), " +
-                    "(234, 'Call of duty', 976, 'Moba', 125, 'Activision', 2019), " +
-                    "(657, 'Candy Crush', 004, 'Puzzle', 565, 'Microsoft', 2012);");
-            
+            stmt.executeUpdate("INSERT INTO gamesinfo (GameName, SellerID, Category, Price, Developer, YearPublished) VALUES " +
+                    "('Cyber Adventure', 1, 'Action', 49.99, 'Riot', 2020), " +
+                    "('Valorant', 1, 'FPS', 2000, 'Riot', 2020);");
+
             // Insert sample transactions
-            stmt.executeUpdate("INSERT INTO Transactions (TransactionID, CustomerID, SellerID, Date, Game, Price) VALUES " +
-                    "(543, 123, 865, '2021', 'Valorant', 2000), " +
-                    "(789, 432, 759, '2020', 'Ros', 1753), " +
-                    "(453, 356, 345, '2022', 'Pubg', 1985), " +
-                    "(869, 236, 976, '2019', 'Call of duty', 125), " +
-                    "(078, 779, 004, '2015', 'Candy Crush', 565);");
+            stmt.executeUpdate("INSERT INTO playstoretransaction (UserID, GameID, PurchaseDate, TotalAmount) VALUES " +
+                    "(2, 1, '2021-01-01', 49.99), " +
+                    "(2, 2, '2021-02-01', 2000);");
+
             System.out.println("✅ Sample data inserted!");
         } catch (SQLException e) {
             System.out.println("❌ Error inserting data: " + e.getMessage());
         }
     }
 
-    public void addCustomer(int customerID, String username, String email, String password, String fullName, String address) {
-        String sql = "INSERT INTO Customer (CustomerID, Username, Email, Password, FullName, Address) VALUES (?, ?, ?, ?, ?, ?);";
+    public void addUser(String userType, String username, String email, String password) {
+        String sql = "INSERT INTO users (UserType, Username, Email, Password) VALUES (?, ?, ?, ?);";
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, customerID);
+            pstmt.setString(1, userType);
             pstmt.setString(2, username);
             pstmt.setString(3, email);
             pstmt.setString(4, password);
-            pstmt.setString(5, fullName);
-            pstmt.setString(6, address);
             pstmt.executeUpdate();
-            System.out.println("✅ Customer added successfully!");
+            System.out.println("✅ User added successfully!");
         } catch (SQLException e) {
-            System.out.println("❌ Error adding customer: " + e.getMessage());
+            System.out.println("❌ Error adding user: " + e.getMessage());
         }
     }
 
-    public void addSeller(int sellerID, String sellerName, String contactNum) {
-        String sql = "INSERT INTO Seller (SellerID, SellerName, ContactNum) VALUES (?, ?, ?);";
+    public void addSeller(String sellerName, String contactInfo) {
+        String sql = "INSERT INTO sellerinfo (SellerName, ContactInfo) VALUES (?, ?);";
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, sellerID);
-            pstmt.setString(2, sellerName);
-            pstmt.setString(3, contactNum);
+            pstmt.setString(1, sellerName);
+            pstmt.setString(2, contactInfo);
             pstmt.executeUpdate();
             System.out.println("✅ Seller added successfully!");
         } catch (SQLException e) {
             System.out.println("❌ Error adding seller: " + e.getMessage());
         }
     }
-    
-    public void addGame(int gameID, String gameName, int sellerID, String category, double price, String developer, int yearPublished) {
-        String sql = "INSERT INTO Game (GameID, GameName, SellerID, Category, Price, Developer, YearPublished) VALUES (?, ?, ?, ?, ?, ?, ?);";
+
+    public void addGame(String gameName, int sellerID, String category, double price, String developer, int yearPublished) {
+        String sql = "INSERT INTO gamesinfo (GameName, SellerID, Category, Price, Developer, YearPublished) VALUES (?, ?, ?, ?, ?, ?);";
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, gameID);
-            pstmt.setString(2, gameName);
-            pstmt.setInt(3, sellerID);
-            pstmt.setString(4, category);
-            pstmt.setDouble(5, price);
-            pstmt.setString(6, developer);
-            pstmt.setInt(7, yearPublished);
+            pstmt.setString(1, gameName);
+            pstmt.setInt(2, sellerID);
+            pstmt.setString(3, category);
+            pstmt.setDouble(4, price);
+            pstmt.setString(5, developer);
+            pstmt.setInt(6, yearPublished);
             pstmt.executeUpdate();
             System.out.println("✅ Game added successfully!");
         } catch (SQLException e) {
@@ -180,16 +162,14 @@ public class DatabaseManager {
         }
     }
 
-    public void addTransaction(int transactionID, int customerID, int sellerID, String date, String game, double price) {
-        String sql = "INSERT INTO Transactions (TransactionID, CustomerID, SellerID, Date, Game, Price) VALUES (?, ?, ?, ?, ?, ?);";
+    public void addTransaction(int userID, int gameID, String purchaseDate, double totalAmount) {
+        String sql = "INSERT INTO playstoretransaction (UserID, GameID, PurchaseDate, TotalAmount) VALUES (?, ?, ?, ?);";
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, transactionID);
-            pstmt.setInt(2, customerID);
-            pstmt.setInt(3, sellerID);
-            pstmt.setString(4, date);
-            pstmt.setString(5, game);
-            pstmt.setDouble(6, price);
+            pstmt.setInt(1, userID);
+            pstmt.setInt(2, gameID);
+            pstmt.setString(3, purchaseDate);
+            pstmt.setDouble(4, totalAmount);
             pstmt.executeUpdate();
             System.out.println("✅ Transaction added successfully!");
         } catch (SQLException e) {
@@ -197,75 +177,74 @@ public class DatabaseManager {
         }
     }
 
-    public void getCustomersSortedByName() {
-        String sql = "SELECT CustomerID, FullName, Email, Address FROM Customer ORDER BY FullName ASC;";
+    public void getUsersSortedByUsername() {
+        String sql = "SELECT UserID, Username, Email FROM users ORDER BY Username ASC;";
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                System.out.println("ID: " + rs.getInt("CustomerID") + 
-                                  ", Name: " + rs.getString("FullName") +
-                                  ", Email: " + rs.getString("Email") +
-                                  ", Address: " + rs.getString("Address"));
+                System.out.println("ID: " + rs.getInt("UserID") + 
+                                  ", Username: " + rs.getString("Username") +
+                                  ", Email: " + rs.getString("Email"));
             }
         } catch (SQLException e) {
-            System.out.println("❌ Error retrieving customers: " + e.getMessage());
+            System.out.println("❌ Error retrieving users: " + e.getMessage());
         }
     }
 
-    public void updateCustomerEmail(int customerID, String newEmail) {
-        String sql = "UPDATE Customer SET Email = ? WHERE CustomerID = ?;";
+    public void updateUserEmail(int userID, String newEmail) {
+        String sql = "UPDATE users SET Email = ? WHERE UserID = ?;";
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, newEmail);
-            pstmt.setInt(2, customerID);
+            pstmt.setInt(2, userID);
             pstmt.executeUpdate();
-            System.out.println("✅ Customer email updated successfully!");
+            System.out.println("✅ User email updated successfully!");
         } catch (SQLException e) {
-            System.out.println("❌ Error updating customer email: " + e.getMessage());
+            System.out.println("❌ Error updating user email: " + e.getMessage());
         }
     }
 
-    public void deleteCustomer(int customerID) {
-        String sql = "DELETE FROM Customer WHERE CustomerID = ?;";
+    public void deleteUser(int userID) {
+        String sql = "DELETE FROM users WHERE UserID = ?;";
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, customerID);
+            pstmt.setInt(1, userID);
             pstmt.executeUpdate();
-            System.out.println("✅ Customer deleted successfully!");
+            System.out.println("✅ User deleted successfully!");
         } catch (SQLException e) {
-            System.out.println("❌ Error deleting customer: " + e.getMessage());
+            System.out.println("❌ Error deleting user: " + e.getMessage());
         }
     }
 
-    public void getTotalSpendingPerCustomer() {
-        String sql = "SELECT c.FullName, SUM(t.Price) AS TotalSpent " +
-                    "FROM Customer c " +
-                    "JOIN Transactions t ON c.CustomerID = t.CustomerID " +
-                    "GROUP BY c.CustomerID " +
+    public void getTotalSpendingPerUser() {
+        String sql = "SELECT u.Username, SUM(t.TotalAmount) AS TotalSpent " +
+                    "FROM users u " +
+                    "JOIN playstoretransaction t ON u.UserID = t.UserID " +
+                    "GROUP BY u.UserID " +
                     "ORDER BY TotalSpent DESC;";
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                System.out.println("Customer: " + rs.getString("FullName") + 
+                System.out.println("User: " + rs.getString("Username") + 
                                   " | Total Spent: $" + rs.getDouble("TotalSpent"));
             }
         } catch (SQLException e) {
             System.out.println("❌ Error calculating spending: " + e.getMessage());
         }
     }
-    
-    public void getGamesByCategory(String categoryName) {
-        String sql = "SELECT g.GameName, g.Price, g.Developer, g.YearPublished " +
-                    "FROM Game g " +
-                    "WHERE g.Category = ? " +
-                    "ORDER BY g.Price DESC;";
+
+    public void getGamesByCategory(String category) {
+        String sql = "SELECT GameName, Price, Developer, YearPublished " +
+                    "FROM gamesinfo " +
+                    "WHERE Category = ? " +
+                    "ORDER BY Price DESC;";
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, categoryName);
+            pstmt.setString(1, category);
             ResultSet rs = pstmt.executeQuery();
-            System.out.println("Games in category: " + categoryName);
+            System.out.println("Games in category: " + category);
             while (rs.next()) {
                 System.out.println("Game: " + rs.getString("GameName") + 
                                   " | Price: $" + rs.getDouble("Price") +
@@ -276,11 +255,11 @@ public class DatabaseManager {
             System.out.println("❌ Error retrieving games by category: " + e.getMessage());
         }
     }
-    
+
     public void getSellersWithGames() {
-        String sql = "SELECT s.SellerName, s.ContactNum, COUNT(g.GameID) as GameCount " +
-                    "FROM Seller s " +
-                    "JOIN Game g ON s.SellerID = g.SellerID " +
+        String sql = "SELECT s.SellerName, COUNT(g.GameID) as GameCount " +
+                    "FROM sellerinfo s " +
+                    "JOIN gamesinfo g ON s.SellerID = g.SellerID " +
                     "GROUP BY s.SellerID " +
                     "ORDER BY GameCount DESC;";
         try (Connection conn = DriverManager.getConnection(URL);
@@ -288,7 +267,6 @@ public class DatabaseManager {
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 System.out.println("Seller: " + rs.getString("SellerName") + 
-                                  " | Contact: " + rs.getString("ContactNum") +
                                   " | Games Available: " + rs.getInt("GameCount"));
             }
         } catch (SQLException e) {
@@ -296,46 +274,46 @@ public class DatabaseManager {
         }
     }
 
-    public void getCustomersAboveAverageSpending() {
-        String sql = "SELECT c.FullName, SUM(t.Price) AS TotalSpent " +
-                    "FROM Customer c " +
-                    "JOIN Transactions t ON c.CustomerID = t.CustomerID " +
-                    "GROUP BY c.CustomerID " +
-                    "HAVING TotalSpent > (SELECT AVG(Price) FROM Transactions);";
+    public void getUsersAboveAverageSpending() {
+        String sql = "SELECT u.Username, SUM(t.TotalAmount) AS TotalSpent " +
+                    "FROM users u " +
+                    "JOIN playstoretransaction t ON u.UserID = t.UserID " +
+                    "GROUP BY u.UserID " +
+                    "HAVING TotalSpent > (SELECT AVG(TotalAmount) FROM playstoretransaction);";
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                System.out.println("Customer: " + rs.getString("FullName") + 
+                System.out.println("User: " + rs.getString("Username") + 
                                   " | Total Spent: $" + rs.getDouble("TotalSpent"));
             }
         } catch (SQLException e) {
-            System.out.println("❌ Error retrieving customers above average spending: " + e.getMessage());
+            System.out.println("❌ Error retrieving users above average spending: " + e.getMessage());
         }
     }
 
-    public void getAllCustomersWithTransactions() {
-        String sql = "SELECT c.FullName, t.TransactionID, t.Game, t.Price " +
-                    "FROM Customer c " +
-                    "LEFT JOIN Transactions t ON c.CustomerID = t.CustomerID;";
+    public void getAllUsersWithTransactions() {
+        String sql = "SELECT u.Username, t.TransactionID, t.PurchaseDate, t.TotalAmount " +
+                    "FROM users u " +
+                    "LEFT JOIN playstoretransaction t ON u.UserID = t.UserID;";
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                System.out.println("Customer: " + rs.getString("FullName") + 
+                System.out.println("User: " + rs.getString("Username") + 
                                   " | Transaction ID: " + rs.getInt("TransactionID") +
-                                  " | Game: " + rs.getString("Game") +
-                                  " | Price: $" + rs.getDouble("Price"));
+                                  " | Purchase Date: " + rs.getString("PurchaseDate") +
+                                  " | Total Amount: $" + rs.getDouble("TotalAmount"));
             }
         } catch (SQLException e) {
-            System.out.println("❌ Error retrieving customers with transactions: " + e.getMessage());
+            System.out.println("❌ Error retrieving users with transactions: " + e.getMessage());
         }
     }
 
     public void getAllSellersWithGames() {
         String sql = "SELECT s.SellerName, g.GameName " +
-                    "FROM Seller s " +
-                    "RIGHT JOIN Game g ON s.SellerID = g.SellerID;";
+                    "FROM sellerinfo s " +
+                    "RIGHT JOIN gamesinfo g ON s.SellerID = g.SellerID;";
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
