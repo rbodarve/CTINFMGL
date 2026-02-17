@@ -1,13 +1,17 @@
-# E-Games: Digital Game Marketplace
+# CTINFMGL Final Project: E-Games Digital Marketplace
 
 [![Java](https://img.shields.io/badge/Java-21-blue.svg)](https://www.oracle.com/java/)
 [![SQLite](https://img.shields.io/badge/Database-SQLite-green.svg)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A comprehensive Java-based e-commerce platform for digital game distribution with CRUD operations, advanced querying, and SQLite database management.
+**Course**: CTINFMGL (Information Management)  
+**Project Type**: Final Project  
+
+A comprehensive Java-based e-commerce platform demonstrating information management principles through CRUD operations, database schema design, advanced querying, and SQLite database management on a digital game marketplace system.
 
 ## Table of Contents
 
+- [Course Overview](#course-overview)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -15,6 +19,16 @@ A comprehensive Java-based e-commerce platform for digital game distribution wit
 - [Project Structure](#project-structure)
 - [Compilation & Execution](#compilation--execution)
 - [License](#license)
+
+## Course Overview
+
+This final project for **CTINFMGL (Information Management)** demonstrates key concepts in database design and information management:
+
+- **Database Schema Design**: Implementing normalized relational database structures
+- **CRUD Operations**: Create, Read, Update, and Delete operations for data management
+- **Data Integrity**: Using foreign keys and constraints to maintain data consistency
+- **Query Optimization**: Complex SQL queries for meaningful data retrieval
+- **Information Systems**: Building an integrated system for managing business information
 
 ## Features
 
