@@ -1,0 +1,6 @@
+# Compiled class files
+bin/
+*.class
+
+# Generated SQLite database
+database.db

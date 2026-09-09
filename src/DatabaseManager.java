@@ -2,11 +2,10 @@ import java.sql.*;
 
 public class DatabaseManager {
 
-    private static final String URL = "jdbc:sqlite:database.db";
+    private static final String URL = "jdbc:sqlite:database.db?foreign_keys=on";
 
     public DatabaseManager() {
         loadDriver();
-        createDatabaseIfNotExists();
         if (isDatabaseEmpty()) {
             createSchema();
             insertSampleData();
@@ -20,16 +19,6 @@ public class DatabaseManager {
         } catch (ClassNotFoundException e) {
             System.out.println("❌ SQLite JDBC Driver not found!");
             System.err.println("Error loading SQLite JDBC Driver: " + e.getMessage());
-        }
-    }
-
-    private void createDatabaseIfNotExists() {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            if (conn != null) {
-                System.out.println("✅ Database file created or already exists!");
-            }
-        } catch (SQLException e) {
-            System.out.println("❌ Error creating database: " + e.getMessage());
         }
     }
 
@@ -47,8 +36,6 @@ public class DatabaseManager {
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement()) {
 
-            stmt.execute("PRAGMA foreign_keys = ON;");
-
             // Create tables according to the documentation schema
             stmt.execute("CREATE TABLE IF NOT EXISTS users (" +
                          "UserID INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -60,8 +47,7 @@ public class DatabaseManager {
             stmt.execute("CREATE TABLE IF NOT EXISTS sellerinfo (" +
                          "SellerID INTEGER PRIMARY KEY AUTOINCREMENT, " +
                          "SellerName VARCHAR(100), " +
-                         "ContactInfo VARCHAR(100), " +
-                         "GamesSold INTEGER UNSIGNED DEFAULT 0);");
+                         "ContactInfo VARCHAR(100));");
 
             stmt.execute("CREATE TABLE IF NOT EXISTS gamesinfo (" +
                          "GameID INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -182,10 +168,15 @@ public class DatabaseManager {
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
+            boolean found = false;
             while (rs.next()) {
-                System.out.println("ID: " + rs.getInt("UserID") + 
+                found = true;
+                System.out.println("ID: " + rs.getInt("UserID") +
                                   ", Username: " + rs.getString("Username") +
                                   ", Email: " + rs.getString("Email"));
+            }
+            if (!found) {
+                System.out.println("No users found.");
             }
         } catch (SQLException e) {
             System.out.println("❌ Error retrieving users: " + e.getMessage());
@@ -198,8 +189,12 @@ public class DatabaseManager {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, newEmail);
             pstmt.setInt(2, userID);
-            pstmt.executeUpdate();
-            System.out.println("✅ User email updated successfully!");
+            int rows = pstmt.executeUpdate();
+            if (rows > 0) {
+                System.out.println("✅ User email updated successfully!");
+            } else {
+                System.out.println("⚠️ No user found with ID " + userID + ".");
+            }
         } catch (SQLException e) {
             System.out.println("❌ Error updating user email: " + e.getMessage());
         }
@@ -210,8 +205,12 @@ public class DatabaseManager {
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, userID);
-            pstmt.executeUpdate();
-            System.out.println("✅ User deleted successfully!");
+            int rows = pstmt.executeUpdate();
+            if (rows > 0) {
+                System.out.println("✅ User deleted successfully!");
+            } else {
+                System.out.println("⚠️ No user found with ID " + userID + ".");
+            }
         } catch (SQLException e) {
             System.out.println("❌ Error deleting user: " + e.getMessage());
         }
@@ -226,9 +225,14 @@ public class DatabaseManager {
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
+            boolean found = false;
             while (rs.next()) {
-                System.out.println("User: " + rs.getString("Username") + 
-                                  " | Total Spent: $" + rs.getDouble("TotalSpent"));
+                found = true;
+                System.out.println("User: " + rs.getString("Username") +
+                                  " | Total Spent: $" + String.format("%.2f", rs.getDouble("TotalSpent")));
+            }
+            if (!found) {
+                System.out.println("No spending records found.");
             }
         } catch (SQLException e) {
             System.out.println("❌ Error calculating spending: " + e.getMessage());
@@ -243,13 +247,19 @@ public class DatabaseManager {
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, category);
-            ResultSet rs = pstmt.executeQuery();
-            System.out.println("Games in category: " + category);
-            while (rs.next()) {
-                System.out.println("Game: " + rs.getString("GameName") + 
-                                  " | Price: $" + rs.getDouble("Price") +
-                                  " | Developer: " + rs.getString("Developer") +
-                                  " | Year: " + rs.getInt("YearPublished"));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                System.out.println("Games in category: " + category);
+                boolean found = false;
+                while (rs.next()) {
+                    found = true;
+                    System.out.println("Game: " + rs.getString("GameName") +
+                                      " | Price: $" + String.format("%.2f", rs.getDouble("Price")) +
+                                      " | Developer: " + rs.getString("Developer") +
+                                      " | Year: " + rs.getInt("YearPublished"));
+                }
+                if (!found) {
+                    System.out.println("No games found in this category.");
+                }
             }
         } catch (SQLException e) {
             System.out.println("❌ Error retrieving games by category: " + e.getMessage());
@@ -259,15 +269,20 @@ public class DatabaseManager {
     public void getSellersWithGames() {
         String sql = "SELECT s.SellerName, COUNT(g.GameID) as GameCount " +
                     "FROM sellerinfo s " +
-                    "JOIN gamesinfo g ON s.SellerID = g.SellerID " +
+                    "LEFT JOIN gamesinfo g ON s.SellerID = g.SellerID " +
                     "GROUP BY s.SellerID " +
                     "ORDER BY GameCount DESC;";
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
+            boolean found = false;
             while (rs.next()) {
-                System.out.println("Seller: " + rs.getString("SellerName") + 
+                found = true;
+                System.out.println("Seller: " + rs.getString("SellerName") +
                                   " | Games Available: " + rs.getInt("GameCount"));
+            }
+            if (!found) {
+                System.out.println("No sellers found.");
             }
         } catch (SQLException e) {
             System.out.println("❌ Error retrieving sellers: " + e.getMessage());
@@ -279,13 +294,19 @@ public class DatabaseManager {
                     "FROM users u " +
                     "JOIN playstoretransaction t ON u.UserID = t.UserID " +
                     "GROUP BY u.UserID " +
-                    "HAVING TotalSpent > (SELECT AVG(TotalAmount) FROM playstoretransaction);";
+                    "HAVING TotalSpent > (SELECT AVG(UserTotal) FROM " +
+                    "(SELECT SUM(TotalAmount) AS UserTotal FROM playstoretransaction GROUP BY UserID));";
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
+            boolean found = false;
             while (rs.next()) {
-                System.out.println("User: " + rs.getString("Username") + 
-                                  " | Total Spent: $" + rs.getDouble("TotalSpent"));
+                found = true;
+                System.out.println("User: " + rs.getString("Username") +
+                                  " | Total Spent: $" + String.format("%.2f", rs.getDouble("TotalSpent")));
+            }
+            if (!found) {
+                System.out.println("No users above average spending found.");
             }
         } catch (SQLException e) {
             System.out.println("❌ Error retrieving users above average spending: " + e.getMessage());
@@ -299,11 +320,21 @@ public class DatabaseManager {
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
+            boolean found = false;
             while (rs.next()) {
-                System.out.println("User: " + rs.getString("Username") + 
-                                  " | Transaction ID: " + rs.getInt("TransactionID") +
-                                  " | Purchase Date: " + rs.getString("PurchaseDate") +
-                                  " | Total Amount: $" + rs.getDouble("TotalAmount"));
+                found = true;
+                int transactionID = rs.getInt("TransactionID");
+                if (rs.wasNull()) {
+                    System.out.println("User: " + rs.getString("Username") + " | No transactions");
+                } else {
+                    System.out.println("User: " + rs.getString("Username") +
+                                      " | Transaction ID: " + transactionID +
+                                      " | Purchase Date: " + rs.getString("PurchaseDate") +
+                                      " | Total Amount: $" + String.format("%.2f", rs.getDouble("TotalAmount")));
+                }
+            }
+            if (!found) {
+                System.out.println("No users found.");
             }
         } catch (SQLException e) {
             System.out.println("❌ Error retrieving users with transactions: " + e.getMessage());
@@ -317,9 +348,14 @@ public class DatabaseManager {
         try (Connection conn = DriverManager.getConnection(URL);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
+            boolean found = false;
             while (rs.next()) {
-                System.out.println("Seller: " + rs.getString("SellerName") + 
+                found = true;
+                System.out.println("Seller: " + rs.getString("SellerName") +
                                   " | Game: " + rs.getString("GameName"));
+            }
+            if (!found) {
+                System.out.println("No games found.");
             }
         } catch (SQLException e) {
             System.out.println("❌ Error retrieving sellers with games: " + e.getMessage());

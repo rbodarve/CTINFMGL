@@ -18,6 +18,7 @@ A comprehensive Java-based e-commerce platform demonstrating information managem
 - [Usage](#usage)
 - [Project Structure](#project-structure)
 - [Compilation & Execution](#compilation--execution)
+- [Troubleshooting](#troubleshooting)
 - [License](#license)
 
 ## Course Overview
@@ -33,7 +34,7 @@ This final project for **CTINFMGL (Information Management)** demonstrates key co
 ## Features
 
 **Core Functionality**
-- **Create Operations**: Add users, sellers, and games to the marketplace
+- **Create Operations**: Add users, sellers, games, and transactions to the marketplace
 - **Read Operations**: Query and retrieve data from the system
 - **Update Operations**: Modify existing records
 - **Delete Operations**: Remove records from the database
@@ -44,6 +45,7 @@ This final project for **CTINFMGL (Information Management)** demonstrates key co
 - Full schema management with foreign key constraints
 - Sample data initialization on first run
 - Type-safe database operations
+- Input validation with re-prompting on invalid entries
 - Interactive command-line interface
 
 ## Requirements
@@ -91,6 +93,9 @@ java -cp lib/sqlite-jdbc-3.49.1.0.jar:src Main
 javac -cp lib/sqlite-jdbc-3.49.1.0.jar src/*.java && java -cp lib/sqlite-jdbc-3.49.1.0.jar:src Main
 ```
 
+> **Windows note**: the classpath separator is `;` instead of `:`, e.g.
+> `java -cp "lib/sqlite-jdbc-3.49.1.0.jar;src" Main`
+
 ### Interactive Menu
 
 Once running, the application presents a main menu:
@@ -121,22 +126,14 @@ CTINFMGL/
 │   └── sqlite-jdbc-3.49.1.0.jar  # SQLite JDBC driver
 ├── bin/                        # Compiled class files (generated)
 ├── database.db                 # SQLite database (generated on first run)
+├── .gitignore                  # Ignores build artifacts & generated DB
+├── LICENSE                     # MIT license
 └── README.md                   # This file
 ```
 
-## Compilation & Execution
+## Troubleshooting
 
-**Important**: Always compile with the SQLite driver on the classpath:
-
-```bash
-# Compile
-javac -cp lib/sqlite-jdbc-3.49.1.0.jar src/*.java
-
-# Run
-java -cp lib/sqlite-jdbc-3.49.1.0.jar:src Main
-```
-
-**Troubleshooting**:
+- Always compile with the SQLite driver on the classpath (see [Compilation & Execution](#compilation--execution) above).
 - If you see "cannot find symbol: class DatabaseManager", ensure you're compiling all files together with the driver
 - Clean compiled files before rebuilding:
   ```bash

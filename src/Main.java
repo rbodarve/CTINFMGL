@@ -1,14 +1,19 @@
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.InputMismatchException;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 public class Main {
-    private static final DatabaseManager db = new DatabaseManager();
+    private static DatabaseManager db;
     private static Scanner scanner;
 
     public static void main(String[] args) {
         System.out.println("=====================");
         System.out.println("E-Games: Digital Game Marketplace");
         System.out.println("=====================");
+
+        db = new DatabaseManager();
 
         try (Scanner sc = new Scanner(System.in)) {
             scanner = sc;
@@ -66,41 +71,41 @@ public class Main {
 
     private static void addUser() {
         System.out.println("\n--- Add User ---");
-        String userType = getStringInput("Enter User Type (Admin/Guest): ");
-        String username = getStringInput("Enter Username: ");
+        String userType = getUserTypeInput("Enter User Type (Admin/Guest): ");
+        String username = getNonEmptyStringInput("Enter Username: ");
         String email = getStringInput("Enter Email: ");
-        String password = getStringInput("Enter Password: ");
-        
+        String password = getNonEmptyStringInput("Enter Password: ");
+
         db.addUser(userType, username, email, password);
     }
 
     private static void addSeller() {
         System.out.println("\n--- Add Seller ---");
-        String sellerName = getStringInput("Enter Seller Name: ");
+        String sellerName = getNonEmptyStringInput("Enter Seller Name: ");
         String contactInfo = getStringInput("Enter Contact Info: ");
-        
+
         db.addSeller(sellerName, contactInfo);
     }
 
     private static void addGame() {
         System.out.println("\n--- Add Game ---");
-        String gameName = getStringInput("Enter Game Name: ");
-        int sellerID = getIntInput("Enter Seller ID: ");
+        String gameName = getNonEmptyStringInput("Enter Game Name: ");
+        int sellerID = getPositiveIntInput("Enter Seller ID: ");
         String category = getStringInput("Enter Category: ");
-        double price = getDoubleInput("Enter Price: ");
+        double price = getNonNegativeDoubleInput("Enter Price: ");
         String developer = getStringInput("Enter Developer: ");
-        int yearPublished = getIntInput("Enter Year Published: ");
-        
+        int yearPublished = getPositiveIntInput("Enter Year Published: ");
+
         db.addGame(gameName, sellerID, category, price, developer, yearPublished);
     }
 
     private static void addTransaction() {
         System.out.println("\n--- Add Transaction ---");
-        int userID = getIntInput("Enter User ID: ");
-        int gameID = getIntInput("Enter Game ID: ");
-        String purchaseDate = getStringInput("Enter Purchase Date (YYYY-MM-DD): ");
-        double totalAmount = getDoubleInput("Enter Total Amount: ");
-        
+        int userID = getPositiveIntInput("Enter User ID: ");
+        int gameID = getPositiveIntInput("Enter Game ID: ");
+        String purchaseDate = getDateInput("Enter Purchase Date (YYYY-MM-DD): ");
+        double totalAmount = getNonNegativeDoubleInput("Enter Total Amount: ");
+
         db.addTransaction(userID, gameID, purchaseDate, totalAmount);
     }
 
@@ -137,8 +142,8 @@ public class Main {
             
             switch (choice) {
                 case 1 -> {
-                    int userID = getIntInput("Enter User ID to update: ");
-                    String newEmail = getStringInput("Enter New Email: ");
+                    int userID = getPositiveIntInput("Enter User ID to update: ");
+                    String newEmail = getNonEmptyStringInput("Enter New Email: ");
                     db.updateUserEmail(userID, newEmail);
                 }
                 case 0 -> { return; }
@@ -158,7 +163,7 @@ public class Main {
             switch (choice) {
                 case 1 -> {
                     System.out.println("⚠️ Warning: This will delete the user record!");
-                    int userID = getIntInput("Enter User ID to delete: ");
+                    int userID = getPositiveIntInput("Enter User ID to delete: ");
                     String confirm = getStringInput("Are you sure? (y/n): ");
                     if (confirm.equalsIgnoreCase("y")) {
                         db.deleteUser(userID);
@@ -196,7 +201,12 @@ public class Main {
 
     private static String getStringInput(String prompt) {
         System.out.print(prompt);
-        return scanner.nextLine();
+        try {
+            return scanner.nextLine();
+        } catch (NoSuchElementException e) {
+            exitOnEndOfInput();
+            return null; // unreachable; exitOnEndOfInput terminates
+        }
     }
 
     private static int getIntInput(String prompt) {
@@ -209,6 +219,8 @@ public class Main {
             } catch (InputMismatchException e) {
                 System.out.println("Invalid input. Please enter a number.");
                 scanner.nextLine(); // Consume invalid input
+            } catch (NoSuchElementException e) {
+                exitOnEndOfInput();
             }
         }
     }
@@ -223,6 +235,68 @@ public class Main {
             } catch (InputMismatchException e) {
                 System.out.println("Invalid input. Please enter a number.");
                 scanner.nextLine(); // Consume invalid input
+            } catch (NoSuchElementException e) {
+                exitOnEndOfInput();
+            }
+        }
+    }
+
+    private static void exitOnEndOfInput() {
+        System.out.println("\nNo more input. Exiting the system. Goodbye!");
+        System.exit(0);
+    }
+
+    private static String getNonEmptyStringInput(String prompt) {
+        while (true) {
+            String value = getStringInput(prompt).trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
+            System.out.println("Input cannot be empty. Please try again.");
+        }
+    }
+
+    private static String getUserTypeInput(String prompt) {
+        while (true) {
+            String value = getStringInput(prompt).trim();
+            if (value.equalsIgnoreCase("Admin")) {
+                return "Admin";
+            }
+            if (value.equalsIgnoreCase("Guest")) {
+                return "Guest";
+            }
+            System.out.println("User Type must be 'Admin' or 'Guest'.");
+        }
+    }
+
+    private static int getPositiveIntInput(String prompt) {
+        while (true) {
+            int value = getIntInput(prompt);
+            if (value > 0) {
+                return value;
+            }
+            System.out.println("Value must be a positive number.");
+        }
+    }
+
+    private static double getNonNegativeDoubleInput(String prompt) {
+        while (true) {
+            double value = getDoubleInput(prompt);
+            if (value >= 0) {
+                return value;
+            }
+            System.out.println("Value cannot be negative.");
+        }
+    }
+
+    private static String getDateInput(String prompt) {
+        while (true) {
+            String value = getStringInput(prompt).trim();
+            try {
+                LocalDate.parse(value);
+                return value;
+            } catch (DateTimeParseException e) {
+                System.out.println("Invalid date. Please use format YYYY-MM-DD.");
             }
         }
     }
