@@ -19,6 +19,7 @@ A comprehensive Java-based e-commerce platform demonstrating information managem
 - [Project Structure](#project-structure)
 - [Compilation & Execution](#compilation--execution)
 - [Troubleshooting](#troubleshooting)
+- [Simulation Test Run](#simulation-test-run-2026-10-08-javacjava-21012)
 - [License](#license)
 
 ## Course Overview
@@ -85,16 +86,11 @@ javac -cp lib/sqlite-jdbc-3.49.1.0.jar src/*.java
 
 **Run the application**:
 ```bash
-java -cp lib/sqlite-jdbc-3.49.1.0.jar:src Main
+java -cp "lib/sqlite-jdbc-3.49.1.0.jar;src" Main
 ```
 
-**Complete build & run**:
-```bash
-javac -cp lib/sqlite-jdbc-3.49.1.0.jar src/*.java && java -cp lib/sqlite-jdbc-3.49.1.0.jar:src Main
-```
-
-> **Windows note**: the classpath separator is `;` instead of `:`, e.g.
-> `java -cp "lib/sqlite-jdbc-3.49.1.0.jar;src" Main`
+> **Linux/macOS note**: the classpath separator is `:` instead of `;`, e.g.
+> `java -cp lib/sqlite-jdbc-3.49.1.0.jar:src Main`
 
 ### Interactive Menu
 
@@ -139,6 +135,30 @@ CTINFMGL/
   ```bash
   rm -f src/*.class
   ```
+
+## Simulation test run (2026-10-08, javac/java 21.0.12)
+
+Compiled and run with the commands above, in a temporary folder per run, so the committed
+`database.db` stayed unchanged. The program was run **100 times** with scripted stdin:
+85 fixed scenarios and 15 random read-only menu walks (seed 42). 90 runs started from an
+empty folder (fresh schema and sample data); 10 used a copy of `database.db`.
+The scenarios cover every menu option, invalid and empty input, out-of-range numbers,
+bad dates, end of input at a prompt, CRLF input, SQL-injection text, Unicode, foreign-key
+and UNIQUE violations, and delete cascades. A run passed when it exited with code 0
+within 20 s, printed no Java stack trace, reached "Goodbye", and printed `❌` only where
+a database error was expected.
+
+**Result:** 100/100 passed. Invalid input is re-prompted, missing user IDs give
+`⚠️ No user found`, foreign-key violations give a `❌` message without a crash, and
+prepared statements store injection text as plain data.
+
+**Findings (recorded, not fixed):**
+
+| # | Where | Finding |
+|---|-------|---------|
+| 1 | `Main.addUser` (`src/Main.java:76`) | An empty email is stored as `""`, not `NULL`. `users.Email` is `UNIQUE`, so the second user with an empty email fails: `UNIQUE constraint failed: users.Email`. |
+| 2 | `Main.getNonNegativeDoubleInput` (`src/Main.java:285`) | `Scanner.nextDouble()` accepts `NaN`. `NaN >= 0` is false, so the prompt says "Value cannot be negative." The re-prompt works; the message is wrong. |
+| 3 | `Main.getNonNegativeDoubleInput` (`src/Main.java:285`) | `Infinity` passes `value >= 0` and is saved as a game price or transaction amount. |
 
 ## License
 
