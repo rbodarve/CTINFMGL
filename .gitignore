@@ -4,3 +4,7 @@ bin/
 
 # Generated SQLite database
 database.db
+
+# Editor and Claude Code settings
+.vscode/
+.claude/
