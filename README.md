@@ -21,6 +21,7 @@ A comprehensive Java-based e-commerce platform demonstrating information managem
 - [Troubleshooting](#troubleshooting)
 - [Simulation Test Run](#simulation-test-run-2026-10-08-javacjava-21012)
 - [Proposed Simplifications](#proposed-simplifications-2026-10-11-not-applied)
+- [Review Notes](#review-notes-2026-10-14)
 - [License](#license)
 
 ## Course Overview
@@ -97,8 +98,8 @@ Transaction. The program keeps the same four entities, with these changes:
 **Core Functionality**
 - **Create Operations**: Add users, sellers, games, and transactions to the marketplace
 - **Read Operations**: Query and retrieve data from the system
-- **Update Operations**: Modify existing records
-- **Delete Operations**: Remove records from the database
+- **Update Operations**: Change a user's email (the only update offered)
+- **Delete Operations**: Remove a user; the user's transactions are deleted with it (cascade)
 - **Advanced Queries**: Complex database searches and filtering
 
 **Technical Features**
@@ -106,7 +107,7 @@ Transaction. The program keeps the same four entities, with these changes:
 - Full schema management with foreign key constraints
 - Sample data initialization on first run
 - Type-safe database operations
-- Input validation with re-prompting on invalid entries
+- Input validation with re-prompting for numbers, dates, user type and required (non-empty) fields; email, category and contact info are not checked
 - Interactive command-line interface
 
 ## Requirements
@@ -180,7 +181,6 @@ CTINFMGL/
 │   └── DatabaseManager.java   # Database connection & schema management
 ├── lib/
 │   └── sqlite-jdbc-3.49.1.0.jar  # SQLite JDBC driver
-├── bin/                        # Compiled class files (generated)
 ├── database.db                 # SQLite database (generated on first run)
 ├── .gitignore                  # Ignores build artifacts & generated DB
 ├── LICENSE                     # MIT license
@@ -198,8 +198,8 @@ CTINFMGL/
 
 ## Simulation test run (2026-10-08, javac/java 21.0.12)
 
-Compiled and run with the commands above, in a temporary folder per run, so the committed
-`database.db` stayed unchanged. The program was run **100 times** with scripted stdin:
+Compiled and run with the commands above, in a temporary folder per run, so the local
+`database.db` (git-ignored, not tracked) stayed unchanged. The program was run **100 times** with scripted stdin:
 85 fixed scenarios and 15 random read-only menu walks (seed 42). 90 runs started from an
 empty folder (fresh schema and sample data); 10 used a copy of `database.db`.
 The scenarios cover every menu option, invalid and empty input, out-of-range numbers,
@@ -243,6 +243,58 @@ tried on a scratch copy and then reverted, so the committed code does not includ
 all public method signatures would not change. On the scratch copy, the same scripted
 stdin (every read and report option, from an empty folder and from a copy of
 `database.db`) gave byte-identical output, except for the removed driver line.
+
+**More ideas from the 2026-10-14 review (not tried):**
+
+- **One write helper (about −40 lines).** `addUser`, `addSeller`, `addGame`, `addTransaction`,
+  `updateUserEmail` and `deleteUser` repeat connect → prepare → set parameters → execute →
+  catch. One `int execute(sql, errLabel, Object... params)` helper with `setObject` would hold
+  that once and return the row count (`src/DatabaseManager.java:106-217`).
+- **One number-input helper (about −12 lines).** `getIntInput` and `getDoubleInput` are the
+  same loop. Reading a line and parsing it with `Integer.parseInt` / `Double.parseDouble`
+  removes the `nextInt`/`nextLine` pairing and makes input independent of the system locale
+  (issue E2 below) (`src/Main.java:212-242`).
+- **Drop `isDatabaseEmpty` (about −6 lines).** The schema already uses `CREATE TABLE IF NOT EXISTS`,
+  so `createSchema` can always run; sample data is inserted only when `users` has 0 rows
+  (`src/DatabaseManager.java:9-33`).
+- **Final scanner field (−3 lines).** `private static final Scanner scanner = new Scanner(System.in);`
+  instead of assigning it inside `try` (`src/Main.java:9,18-19`).
+- **Shorter user-type check (−3 lines).** Loop over `{"Admin", "Guest"}` instead of two `if`s
+  (`src/Main.java:259-270`).
+- **Optional: table-driven menus (about −40 lines).** The five menu loops share one shape, and
+  the Update and Delete menus have one item each. A `Map<Integer, Runnable>` menu helper would
+  replace them. Kept as is because the course rubric shows the separate CRUD menus
+  (`src/Main.java:50-200`).
+
+## Review notes (2026-10-14)
+
+Code review of `src/Main.java` and `src/DatabaseManager.java`. Nothing was fixed.
+Tags: **[ran]** = reproduced with a test run; **[read]** = found by reading the source only.
+Findings #1-#3 of the simulation test run above are not repeated here.
+
+**Known issues**
+
+| # | Severity | Where | Issue | Tag |
+|---|----------|-------|-------|-----|
+| E1 | High | `src/DatabaseManager.java:15-23` | If the SQLite driver jar is missing, the error is only printed; the menu still opens and every action fails with `❌ No suitable driver`. | [ran] |
+| E2 | Medium | `src/Main.java:232`, `src/DatabaseManager.java:232,256,306,333` | Number input and output follow the system locale: with German settings `49.99` is rejected, `49,99` is accepted and prices print as `$49,99`. In English settings `1,000` is read as 1000. | [ran] |
+| E3 | Medium | `src/Main.java:165`, `src/DatabaseManager.java:68` | Deleting a user also deletes the user's transactions (`ON DELETE CASCADE`), but the warning mentions only the user record. | [ran] |
+| E4 | Medium | `src/Main.java:125`, `src/DatabaseManager.java:245` | Category search is case- and space-sensitive: `action` and ` Action` find nothing. | [ran] |
+| E5 | Low | `src/DatabaseManager.java:43,167` | Usernames compare case-sensitively: `customer1` is accepted beside `Customer1`, and the sorted list puts `alice` after `GameSeller1`. | [ran] |
+| E6 | Low | `src/Main.java:167-168` | The delete confirmation is not trimmed: ` y` cancels the delete. | [ran] |
+| E7 | Low | `src/DatabaseManager.java:5` | The database path is relative to the working folder; starting the program elsewhere creates a new, seeded `database.db` there. | [ran] |
+| E8 | Low | `src/DatabaseManager.java:25-33` | `isDatabaseEmpty` checks only that table `users` exists and returns `true` on any `SQLException`; a missing other table is never created. | [read] |
+| E9 | Low | `src/DatabaseManager.java:77-104` | Sample data is inserted with 4 statements and no transaction; a failure part-way leaves partial sample data. | [read] |
+| E10 | Low | `src/Main.java:107`, `src/DatabaseManager.java:151` | The transaction amount is typed by hand, not taken from the game's price. | [read] |
+| E11 | Low | `src/DatabaseManager.java:297-298` | "Above average" averages only users with at least one transaction; with the sample data (one buyer) the result is always empty. | [ran] |
+| E12 | Low | `src/DatabaseManager.java:57,67`, `src/Main.java:95,107` | Money is stored as `double`/`REAL`; `DECIMAL(10,2)` does not round in SQLite, so `1.999` would be stored as is and shown as `2.00`. | [read] |
+| E13 | Low | `src/Main.java:76,146` | Email is optional and unchecked when a user is added, but required when it is updated; no format check anywhere. | [read] |
+| E14 | Low | `src/Main.java:97` | Year published accepts any positive number (e.g. 99999). | [read] |
+| E15 | Low | `src/DatabaseManager.java:45,82-83` | Passwords are stored in plain text; `UserType` (Admin/Guest) is stored but not used for access control. | [read] |
+
+**Tested 2026-10-14:** 10 targeted runs, each in an empty scratch folder (missing driver, German locale, `1,000`, delete cascade, category case and spaces, username case and sort, ` y` confirmation, other working folder, above-average with sample data); all ended normally with no stack trace.
+
+**Not tested:** two programs using one database at the same time; a read-only or locked `database.db`; very long strings; E8, E9 and E12 (source reading only).
 
 ## License
 
